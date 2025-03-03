@@ -11,11 +11,6 @@ import {PredictVault} from "../src/PredictVault.sol";
  */
 contract DeployPredictVault is Script {
     function run() external {
-        // Get wMON token address from environment variable
-        address wMonToken = vm.envOr("WMON_ADDRESS", address(0));
-        require(wMonToken != address(0), "WMON_ADDRESS not set in .env");
-        console2.log("Using wMON token at:", wMonToken);
-        
         // Get staked MON address from environment variable
         address stakedMon = vm.envOr("STAKED_MON_ADDRESS", address(0));
         require(stakedMon != address(0), "STAKED_MON_ADDRESS not set in .env");
@@ -26,7 +21,6 @@ contract DeployPredictVault is Script {
 
         // Deploy the PredictVault contract
         PredictVault vault = new PredictVault(
-            wMonToken,
             stakedMon
         );
 
