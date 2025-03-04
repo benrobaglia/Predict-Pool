@@ -1,0 +1,6 @@
+flask==2.3.3
+flask-cors==4.0.0
+web3==6.11.1
+apscheduler==3.10.4
+requests==2.31.0
+python-dotenv==1.0.0
