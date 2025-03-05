@@ -108,6 +108,13 @@ The backend uses SQLite for simplicity. The database schema includes:
 - `predictions` - User predictions for rounds
 - `user_epoch_stats` - User performance statistics for epochs
 
+In order to connect DB using DBeaver (or similar):
+- Navigate to project folder in your machine -> backend -> database.db and copy the path
+- Open DBeaver and establish new SQLite connection
+- Paste the path copied earlier
+
+It will looks something like `/path_to_project/Predict-Pool/backend/database.db`
+
 ## Scheduled Tasks
 
 The backend runs several scheduled tasks:
