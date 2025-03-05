@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # Load ABI from the project root
 try:
-    with open('PredictVault_abi.json', 'r') as f:
+    with open('../abi/PredictVault.json', 'r') as f:
         contract_abi = json.load(f)
 except FileNotFoundError:
     logger.error("PredictVault_abi.json not found. Make sure the file exists in the project root.")
