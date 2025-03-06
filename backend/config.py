@@ -19,7 +19,7 @@ HOST = os.getenv('HOST', '0.0.0.0')
 PORT = int(os.getenv('PORT', '5000'))
 
 # Price API configuration
-PRICE_API_URL = os.getenv('PRICE_API_URL', 'https://api.coingecko.com/api/v3/simple/price?ids=mon&vs_currencies=usd')
+PRICE_API_URL = os.getenv('PRICE_API_URL', 'https://api.binance.com/api/v3/ticker/price?symbol=')
 
 # Epoch and round configuration
 EPOCH_DURATION_DAYS = int(os.getenv('EPOCH_DURATION_DAYS', '7'))

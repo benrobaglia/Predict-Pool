@@ -6,6 +6,8 @@ import models
 import blockchain
 import config
 from datetime import datetime, timedelta
+import backoff
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,33 +16,24 @@ logger = logging.getLogger(__name__)
 # Initialize scheduler
 scheduler = BackgroundScheduler()
 
+@backoff.on_exception(backoff.expo, Exception, max_tries=10, jitter=backoff.full_jitter)
 def fetch_price():
-    """Fetch current MON price from an API"""
+    """Fetch current symbol price from an API with retries using backoff"""
     try:
-        # Replace with actual price API for MON token
-        # For hackathon purposes, we're using a mock API
-        response = requests.get(config.PRICE_API_URL)
+        symbol = "ETHUSDT"  # Replace with MON when available
+        response = requests.get(config.PRICE_API_URL + symbol, timeout=5)
+        response.raise_for_status()
+
         data = response.json()
-        
-        # Extract price from response (adjust based on actual API response format)
-        # This is a placeholder - you'll need to adapt to the actual API
-        if 'mon' in data and 'usd' in data['mon']:
-            price = data['mon']['usd']
-            logger.info(f"Fetched MON price: ${price}")
+        if 'price' in data:
+            price = data['price']
+            logger.info(f"Fetched {symbol} price: ${price}")
             return price
         else:
-            # For hackathon, return a mock price if API fails
-            import random
-            mock_price = random.uniform(0.5, 2.0)
-            logger.warning(f"Using mock MON price: ${mock_price:.2f}")
-            return mock_price
+            raise ValueError("Invalid response format")
     except Exception as e:
         logger.error(f"Error fetching price: {e}")
-        # For hackathon, return a mock price if API fails
-        import random
-        mock_price = random.uniform(0.5, 2.0)
-        logger.warning(f"Using mock MON price: ${mock_price:.2f}")
-        return mock_price
+        raise 
 
 def process_round_end():
     """Process the end of a round"""
@@ -192,7 +185,7 @@ def start_scheduler():
     logger.info("Starting scheduler...")
     
     # Fetch price every 5 minutes
-    scheduler.add_job(fetch_price, 'interval', minutes=5, id='fetch_price')
+    scheduler.add_job(fetch_price, 'interval', seconds=30, id='fetch_price')
     
     # Check for round end every 10 minutes
     scheduler.add_job(process_round_end, 'interval', minutes=10, id='process_round')
