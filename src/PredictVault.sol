@@ -62,6 +62,10 @@ contract PredictVault is ERC20, Ownable, ReentrancyGuard {
         epochTotalSupply = 0;
     }
     
+    function getUsers() external view returns (address[] memory) {
+        return users;
+    }
+
     // --- Weight Management Functions ---
     
     /**
