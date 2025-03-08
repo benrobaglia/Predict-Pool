@@ -30,6 +30,20 @@ def create_app():
         logger.info("Initializing database...")
         models.init_db()
         logger.info("Database initialized")
+        
+        # Initialize scheduler only once
+        if not hasattr(app, 'scheduler'):
+            logger.info("Starting scheduler...")
+            app.scheduler = tasks.start_scheduler()
+            logger.info("Scheduler started")
+    
+    # Add cleanup on app teardown
+    @app.teardown_appcontext
+    def shutdown_scheduler(exception=None):
+        if hasattr(app, 'scheduler'):
+            logger.info("Stopping scheduler...")
+            tasks.stop_scheduler()
+            logger.info("Scheduler stopped")
     
     # Error handlers
     @app.errorhandler(404)
@@ -55,9 +69,6 @@ def create_app():
 if __name__ == '__main__':
     app = create_app()
     
-    # Start scheduler
-    scheduler = tasks.start_scheduler()
-    
     try:
         # Run the app
         app.run(
@@ -66,6 +77,4 @@ if __name__ == '__main__':
             debug=config.DEBUG
         )
     except KeyboardInterrupt:
-        # Stop scheduler on exit
-        tasks.stop_scheduler()
         logger.info("Application stopped")

@@ -22,5 +22,8 @@ PORT = int(os.getenv('PORT', '5000'))
 PRICE_API_URL = os.getenv('PRICE_API_URL', 'https://api.binance.com/api/v3/ticker/price?symbol=')
 
 # Epoch and round configuration
-EPOCH_DURATION_DAYS = int(os.getenv('EPOCH_DURATION_DAYS', '7'))
-ROUND_DURATION_HOURS = int(os.getenv('ROUND_DURATION_HOURS', '4'))
+EPOCH_DURATION_SECONDS = int(os.getenv('EPOCH_DURATION_SECONDS', '600'))
+EPOCH_LOCK_SECONDS = int(os.getenv('EPOCH_LOCK_SECONDS', '10'))
+ROUNDS_COUNT = int(os.getenv('ROUNDS_COUNT', '10'))
+ROUND_LOCK_PERCENTAGE = float(os.getenv('ROUND_LOCK_SECONDS', '0.5'))
+CALCULATING_SECONDS = int(os.getenv('CALCULATING_SECONDS', '10'))

@@ -7,6 +7,7 @@ import blockchain
 import config
 from datetime import datetime, timedelta
 import backoff
+from functools import partial
 
 
 # Configure logging
@@ -14,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize scheduler
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler({'apscheduler.timezone': 'UTC'})
 
 @backoff.on_exception(backoff.expo, Exception, max_tries=10, jitter=backoff.full_jitter)
 def fetch_price():
@@ -41,6 +42,7 @@ def process_round_end():
     
     # Get current active round
     active_round = models.get_active_round()
+
     if not active_round:
         logger.warning("No active round found")
         return
@@ -78,7 +80,7 @@ def process_round_end():
         if datetime.now() < epoch_end_time:
             # Create new round
             now = datetime.now()
-            round_end = now + timedelta(hours=config.ROUND_DURATION_HOURS)
+            round_end = now + timedelta(minutes=config.ROUND_DURATION_MINUTES)
             
             # Ensure round doesn't extend past epoch end
             if round_end > epoch_end_time:
@@ -152,7 +154,7 @@ def process_epoch_end():
         
         # Create new epoch
         now = datetime.now()
-        epoch_end = now + timedelta(days=config.EPOCH_DURATION_DAYS)
+        epoch_end = now + timedelta(minutes=config.EPOCH_DURATION_MINUTES)
         
         new_epoch_id = models.create_epoch(
             now.strftime('%Y-%m-%d %H:%M:%S'),
@@ -164,7 +166,7 @@ def process_epoch_end():
         # Create first round in new epoch
         current_price = fetch_price()
         if current_price:
-            round_end = now + timedelta(hours=config.ROUND_DURATION_HOURS)
+            round_end = now + timedelta(minutes=config.ROUND_DURATION_MINUTES)
             new_round_id = models.create_round(
                 new_epoch_id,
                 now.strftime('%Y-%m-%d %H:%M:%S'),
@@ -180,18 +182,109 @@ def process_epoch_end():
         else:
             logger.error("Failed to update epoch on contract")
 
+def process_epoch_lock_start(id):
+    """Epoch lock start.
+
+    Lock current epoch
+    Get onchain holders & store to the table
+    """
+    logger.info(f"Locking epoch: {id}")
+    models.lock_epoch(id)
+    users = blockchain.get_users()
+    models.insert_eligible_epoch_users(id, users)
+
+def process_epoch_start(id):
+    """Epoch start.
+    
+    Setting epoch to active
+    """
+    logger.info(f"Activating epoch: {id}")
+    models.activate_epoch(id)
+    #open round from epoch I guess is needed or not, because I will 
+
+def process_epoch_calculating_start(id):
+    """Epoch calculating.
+
+    Setting epoch to calculating
+    Also pushing weights to smart contract
+    """
+    logger.info(f"Calculating epoch: {id}")
+    models.calculating_epoch(id)
+    # add weights pushing to chain
+
+def process_epoch_completed_start(id):
+    """Epoch completed.
+    
+    Setting epoch to complete"""
+    logger.info(f"Completing epoch {id}")
+    models.completing_epoch(id)
+
+
+def refresh_scheduled_jobs():
+    """Refresh the scheduler with new jobs from DB."""
+    jobs = {
+        "process_epoch_lock_start": models.get_epochs_lock_start,
+        "process_epoch_start": models.get_epochs_process_start,
+        "process_epoch_calculating_start": models.get_epochs_calculating_start,
+        "process_epoch_completed_start": models.get_epochs_completed_start,
+    }
+
+    for event_type, get_function in jobs.items():
+        data = get_function()
+
+        for item in data:
+            id = item["id"]
+            job_id = f"{event_type}_{id}"
+            
+            event_datetime = datetime.strptime(item["time"], "%Y-%m-%d %H:%M:%S")
+
+            if event_type in globals():
+                if callable(globals()[event_type]):
+                    process_function = partial(globals()[event_type], id)
+
+                    if not scheduler.get_job(job_id):
+                        scheduler.add_job(
+                            process_function, 
+                            "date", 
+                            run_date=event_datetime, 
+                            id=job_id
+                        )
+                        logger.info(f"Scheduled {event_type} for id {id} at {event_datetime}")
+
+
+    
+
 def start_scheduler():
     """Start the scheduler with all tasks"""
     logger.info("Starting scheduler...")
-    
-    # Fetch price every 5 minutes
-    scheduler.add_job(fetch_price, 'interval', seconds=30, id='fetch_price')
+
+    #generating epochs and rounds
+    #just for example added every 10 mins, it should run once per day
+    scheduler.add_job(models.generate_epochs_and_rounds, 'cron',  minute='*/10', second=0, id='generate_epochs_and_rounds')
+    #scheduler.add_job(models.generate_epochs_and_rounds, 'cron', hour=0, minute=0, second=25, id='daily_generate_epochs_and_rounds') # later change to this
+
+    # Dynamically building list of scheduled tasks
+    scheduler.add_job(refresh_scheduled_jobs, 'cron', minute='*/1', id='refresh_jobs') 
+    #scheduler.add_job(refresh_scheduled_jobs, 'interval', minutes=60, id='refresh_jobs')  # later change to this
+
+
+
+
+
+
+
+    # Fetch price every 30 seconds. It doesn't matters how often we will fetch it, because on round/epoch end we'll fetch the price + frontend should do the calls to get the price directly to Binance
+    #scheduler.add_job(fetch_price, 'interval', seconds=30, id='fetch_price', next_run_time=datetime.now())
     
     # Check for round end every 10 minutes
-    scheduler.add_job(process_round_end, 'interval', minutes=10, id='process_round')
-    
+    #scheduler.add_job(process_round_end, 'interval', seconds=10, id='process_round', next_run_time=datetime.now())
+    #scheduler.add_job(process_round_end, 'cron', second=0, id='process_round')
+    #scheduler.add_job(lock_bidding, 'cron', second=40, id='lock_bidding')
+
+    #scheduler.add_job(process_epoch_end, 'cron',  minute='*/10', second=0, id='process_epoch')
+
     # Check for epoch end every hour
-    scheduler.add_job(process_epoch_end, 'interval', hours=1, id='process_epoch')
+    #scheduler.add_job(process_epoch_end, 'interval', seconds=10, id='process_epoch', next_run_time=datetime.now())
     
     # Start the scheduler
     scheduler.start()
