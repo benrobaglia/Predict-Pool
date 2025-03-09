@@ -1,7 +1,7 @@
 import sqlite3
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import config
 
 logging.basicConfig(level=logging.INFO)
@@ -92,12 +92,7 @@ def init_db():
     # Adding trigger to make sure that we won't have more than one round active, locked or calculating at the time 
     cursor.execute('''
     CREATE TRIGGER IF NOT EXISTS enforce_uniqueness_rounds
-    BEFORE UPDATE ON rounds
-    FOR EACH ROW
-    WHEN NEW.status IN ('active', 'locked', 'calculating')
-    BEGIN
-        SELECT RAISE(ABORT, 'Only one round can have status active, calculating, locked')
-        FROM rounds
+    BEFORE UPDATE ON roundsatetime.now()
         WHERE status = NEW.status AND id != NEW.id;
     END
     ''')
@@ -111,7 +106,6 @@ def init_db():
         UPDATE rounds SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
     END
     ''')
-
 
     # Create user epoch table
     cursor.execute('''
@@ -179,7 +173,7 @@ def generate_epochs_and_rounds():
     logger.info("Generating future epochs and rounds")
     epochs = []
     num_epochs = int(24*60*60/config.EPOCH_DURATION_SECONDS) #calculating number of epochs to be enough for 36 hours
-    current_start_time = datetime.now().replace(minute=0, second=0, microsecond=0)
+    current_start_time = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
 
     for _ in range(num_epochs):
         epoch_end_time = current_start_time + timedelta(seconds=config.EPOCH_DURATION_SECONDS)
