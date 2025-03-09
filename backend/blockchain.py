@@ -74,7 +74,7 @@ def update_user_weights(user_addresses, weights):
         
         # Sign and send transaction
         signed_tx = w3.eth.account.sign_transaction(tx, config.PRIVATE_KEY)
-        tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
         
         # Wait for transaction receipt
         receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
@@ -99,24 +99,20 @@ def get_total_mon():
         return 0
     
 
-# Get all users. This is time consuming function and I think we need a function in a smart contract instead. Added this as note
+# Get all users using the getUsers function from the smart contract
 def get_users():
     """Get all users in Smart Contract"""
     contract = get_contract()
     if not contract:
-        return 0
-    users = []
-    index = 0
-    while True:
-        try:
-            user = contract.functions.users(index).call()
-            users.append(user)
-            index += 1
-        except Exception as e:
-            logger.info(f"Reached end at index {index} with error: {e}")
-            break
-    logger.info(f"Fetched {len(users)} active users from smart contract that are eligible to predict")
-    return users
+        return []
+    
+    try:
+        users = contract.functions.getUsers().call()
+        logger.info(f"Fetched {len(users)} active users from smart contract that are eligible to predict")
+        return users
+    except Exception as e:
+        logger.error(f"Error getting users: {e}")
+        return []
         
 
 # Get user balance
@@ -198,7 +194,7 @@ def update_epoch():
         
         # Sign and send transaction
         signed_tx = w3.eth.account.sign_transaction(tx, config.PRIVATE_KEY)
-        tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
         
         # Wait for transaction receipt
         receipt = w3.eth.wait_for_transaction_receipt(tx_hash)

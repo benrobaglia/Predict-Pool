@@ -92,8 +92,7 @@ def process_epoch_calculating_start(id):
             # Update weights on contract
             if addresses and weights:
                 logger.info(f"{addresses}. {weights}. Will update blockchain")
-                #success = blockchain.update_user_weights(addresses, weights)
-                success = True # remove when uncommenting above
+                success = blockchain.update_user_weights(addresses, weights)
                 if success:
                     logger.info("Successfully updated weights on contract")
                 else:
