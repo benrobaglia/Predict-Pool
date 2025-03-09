@@ -97,6 +97,27 @@ def get_total_mon():
     except Exception as e:
         logger.error(f"Error getting total MON: {e}")
         return 0
+    
+
+# Get all users. This is time consuming function and I think we need a function in a smart contract instead. Added this as note
+def get_users():
+    """Get all users in Smart Contract"""
+    contract = get_contract()
+    if not contract:
+        return 0
+    users = []
+    index = 0
+    while True:
+        try:
+            user = contract.functions.users(index).call()
+            users.append(user)
+            index += 1
+        except Exception as e:
+            logger.info(f"Reached end at index {index} with error: {e}")
+            break
+    logger.info(f"Fetched {len(users)} active users from smart contract that are eligible to predict")
+    return users
+        
 
 # Get user balance
 def get_user_balance(address):

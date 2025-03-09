@@ -9,6 +9,7 @@ RPC_URL = os.getenv('RPC_URL', 'http://localhost:8545')
 CONTRACT_ADDRESS = os.getenv('CONTRACT_ADDRESS')
 PRIVATE_KEY = os.getenv('PRIVATE_KEY')
 STAKED_MON_ADDRESS = os.getenv('STAKED_MON_ADDRESS')
+SYMBOL = os.getenv('SYMBOL')
 
 # Database configuration
 DATABASE_PATH = os.getenv('DATABASE_PATH', 'database.db')
@@ -22,5 +23,10 @@ PORT = int(os.getenv('PORT', '5000'))
 PRICE_API_URL = os.getenv('PRICE_API_URL', 'https://api.binance.com/api/v3/ticker/price?symbol=')
 
 # Epoch and round configuration
-EPOCH_DURATION_DAYS = int(os.getenv('EPOCH_DURATION_DAYS', '7'))
-ROUND_DURATION_HOURS = int(os.getenv('ROUND_DURATION_HOURS', '4'))
+EPOCH_DURATION_SECONDS = int(os.getenv('EPOCH_DURATION_SECONDS', '600'))
+EPOCH_LOCK_SECONDS = int(os.getenv('EPOCH_LOCK_SECONDS', '10'))
+EPOCH_CALCULATING_SECONDS = int(os.getenv('EPOCH_CALCULATING_SECONDS', '10'))
+ROUNDS_COUNT = int(os.getenv('ROUNDS_COUNT', '10'))
+ROUND_LOCK_PERCENTAGE = float(os.getenv('ROUND_LOCK_SECONDS', '0.5'))
+ROUND_CALCULATING_SECONDS = int(os.getenv('ROUND_CALCULATING_SECONDS', '10'))
+
