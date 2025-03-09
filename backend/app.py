@@ -74,7 +74,8 @@ if __name__ == '__main__':
         app.run(
             host=config.HOST,
             port=config.PORT,
-            debug=config.DEBUG
+            debug=config.DEBUG,
+            use_reloader=False  # Disable reloader to prevent duplicate scheduler initialization
         )
     except KeyboardInterrupt:
         logger.info("Application stopped")

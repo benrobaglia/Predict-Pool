@@ -55,9 +55,9 @@ def init_db():
     FOR EACH ROW
     WHEN NEW.status IN ('active', 'locked', 'calculating')
     BEGIN
-        SELECT RAISE(ABORT, 'Only one epoch can have status active, calculating, locked')
+        SELECT RAISE(ABORT, 'Only one round can have status active, calculating, locked')
         FROM epochs
-        WHERE status IN ('active', 'locked', 'calculating') AND id != NEW.id;
+        WHERE status = NEW.status AND id != NEW.id;
     END
     ''')
 
@@ -98,7 +98,7 @@ def init_db():
     BEGIN
         SELECT RAISE(ABORT, 'Only one round can have status active, calculating, locked')
         FROM rounds
-        WHERE status IN ('active', 'locked', 'calculating') AND id != NEW.id;
+        WHERE status = NEW.status AND id != NEW.id;
     END
     ''')
 
@@ -481,7 +481,7 @@ def evaluate_predictions(round_id, correct_direction):
             (round_id,)
         )
         predictions = cursor.fetchall()
-        
+        logger.info(f"Found {len(predictions)} for round {round_id}")
         # Update user_epoch_stats for correct predictions
         for prediction in predictions:
             if prediction['is_correct']:
@@ -629,6 +629,27 @@ def align_epoch_status(id, from_status, to_status):
     finally:
         conn.close()
                 
+def align_round_status(id, from_status, to_status):
+    """Helper function that aligns statuses. In prod no alignment should be needed"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''
+            UPDATE rounds 
+            SET status = ? 
+            WHERE status = ?
+            ''', 
+            (to_status, from_status)
+        )
+        conn.commit()
+        count = cursor.rowcount
+        if count > 0:
+            logger.warning(f"Aligned from {from_status} to {to_status} for {count} records. This is due to id {id}. Ideally in prod alignment shouldn't be needed")
+        return cursor.rowcount
+    finally:
+        conn.close()
+                
 
 def lock_epoch(id):
     """Lock epoch"""
@@ -703,6 +724,79 @@ def completing_epoch(id):
     finally:
         conn.close()   
 
+def activate_round(id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        align_round_status(id, "active", "aligned")  # If in prod we will see warnings here means something is off, because statuses should be aligned even without this
+        cursor.execute(
+            '''
+            UPDATE rounds 
+            SET status = 'active' 
+            WHERE id = ?
+            ''', 
+            (id,)
+        )
+        conn.commit()
+        logger.info(f"Round {id} activated. Rowcount: {cursor.rowcount}")
+    finally:
+        conn.close()   
+
+
+def lock_round(id):
+    """Lock round"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        align_round_status(id, "locked", "aligned") # If in prod we will see warnings here means something is off, because statuses should be aligned even without this
+        cursor.execute(
+            '''
+            UPDATE rounds 
+            SET status = 'locked' 
+            WHERE id = ?
+            ''', 
+            (id,)
+        )
+        conn.commit()
+        logger.info(f"Rounds {id} locked. Rowcount: {cursor.rowcount}")
+    finally:
+        conn.close()
+
+def calculating_round(id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        align_round_status(id, "calculating", "aligned")  # If in prod we will see warnings here means something is off, because statuses should be aligned even without this
+        cursor.execute(
+            '''
+            UPDATE rounds 
+            SET status = 'calculating' 
+            WHERE id = ?
+            ''', 
+            (id,)
+        )
+        conn.commit()
+        logger.info(f"Round {id} calculating. Rowcount: {cursor.rowcount}")
+    finally:
+        conn.close()   
+
+def completing_round(id):
+    conn = get_db_connection()
+    cursor = conn.cursor()   
+    try:
+        cursor.execute(
+            '''
+            UPDATE rounds 
+            SET status = 'completed' 
+            WHERE id = ?
+            ''', 
+            (id,)
+        )
+        conn.commit()
+        logger.info(f"Round {id} completed. Rowcount: {cursor.rowcount}")
+    finally:
+        conn.close() 
+
 def get_epochs_process_start():
     """Get epochs process start"""
     conn = get_db_connection()
@@ -749,11 +843,90 @@ def get_epochs_completed_start():
             FROM epochs
             WHERE datetime(end_time, ?) > current_timestamp
             ''',
-            (f"+{config.CALCULATING_SECONDS} seconds", f"+{config.CALCULATING_SECONDS} seconds")
+            (f"+{config.EPOCH_CALCULATING_SECONDS} seconds", f"+{config.EPOCH_CALCULATING_SECONDS} seconds")
         )
         return cursor.fetchall()
     finally:
         conn.close()
+
+def get_rounds_process_start():
+    """Get rounds process start"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            '''
+            select id, start_time as time 
+            from rounds
+            where start_time > current_timestamp
+            order by id
+            limit 200
+            '''
+        )
+        return cursor.fetchall()
+    finally:
+        conn.close()
+
+
+def get_rounds_lock_start():
+    """Get rounds lock start"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            '''
+            select id, lock_start as time 
+            from rounds
+            where lock_start > current_timestamp
+            order by id
+            limit 200
+            '''
+        )
+        return cursor.fetchall()
+    finally:
+        conn.close()
+
+def get_rounds_calculating_start():
+    """Get rounds calculating start with added seconds"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            '''
+            SELECT id, datetime(lock_end, ?) AS time
+            FROM rounds
+            WHERE datetime(lock_end, ?) > current_timestamp
+            order by id
+            limit 200
+            ''',
+            (f"-{config.ROUND_CALCULATING_SECONDS} seconds", f"-{config.ROUND_CALCULATING_SECONDS} seconds")
+        )
+        return cursor.fetchall()
+    finally:
+        conn.close()
+
+def get_rounds_completed_start():
+    """Get rounds completed start"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(
+            '''
+            select id, lock_end as time 
+            from rounds
+            where lock_end > current_timestamp
+            order by id
+            limit 200
+            '''
+        )
+        return cursor.fetchall()
+    finally:
+        conn.close()
+
 
 def insert_eligible_epoch_users(id, users):
     """Inserting users that can make prediction for particular epoch."""
