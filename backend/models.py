@@ -92,7 +92,12 @@ def init_db():
     # Adding trigger to make sure that we won't have more than one round active, locked or calculating at the time 
     cursor.execute('''
     CREATE TRIGGER IF NOT EXISTS enforce_uniqueness_rounds
-    BEFORE UPDATE ON roundsatetime.now()
+    BEFORE UPDATE ON rounds
+    FOR EACH ROW
+    WHEN NEW.status IN ('active', 'locked', 'calculating')
+    BEGIN
+        SELECT RAISE(ABORT, 'Only one round can have status active, calculating, locked')
+        FROM rounds
         WHERE status = NEW.status AND id != NEW.id;
     END
     ''')
@@ -158,7 +163,8 @@ def init_db():
         total_predictions INTEGER DEFAULT 0,
         weight REAL DEFAULT 0,
         FOREIGN KEY (user_address) REFERENCES users (address),
-        FOREIGN KEY (epoch_id) REFERENCES epochs (id)
+        FOREIGN KEY (epoch_id) REFERENCES epochs (id),
+        UNIQUE (user_address, epoch_id)  
     )
     ''')
 
@@ -167,9 +173,40 @@ def init_db():
     conn.close()
 
     generate_epochs_and_rounds()
-        
+
+def insert_epoch(start_time, end_time, lock_start, lock_end, status):
+    """Insert epoch, ignoring conflicts"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """INSERT INTO epochs (start_time, end_time, lock_start, lock_end, status)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(start_time) DO NOTHING
+            """,
+            (start_time, end_time, lock_start, lock_end, status)
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
+
+def insert_rounds(rounds_data):
+    """Insert rounds"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.executemany(
+            'INSERT INTO rounds (epoch_id, start_time, end_time, lock_start, lock_end, starting_price, ending_price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            rounds_data
+        )
+        conn.commit()
+    finally:
+        conn.close()        
 
 def generate_epochs_and_rounds():
+    """Pregenerating epochs & rounds"""
     logger.info("Generating future epochs and rounds")
     epochs = []
     num_epochs = int(24*60*60/config.EPOCH_DURATION_SECONDS) #calculating number of epochs to be enough for 36 hours
@@ -253,53 +290,6 @@ def get_user(address):
     finally:
         conn.close()
 
-def insert_epoch(start_time, end_time, lock_start, lock_end, status):
-    """Insert epoch, ignoring conflicts"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            """INSERT INTO epochs (start_time, end_time, lock_start, lock_end, status)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(start_time) DO NOTHING
-            """,
-            (start_time, end_time, lock_start, lock_end, status)
-        )
-        conn.commit()
-        return cursor.lastrowid
-    finally:
-        conn.close()
-
-def insert_rounds(rounds_data):
-    """Insert rounds"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.executemany(
-            'INSERT INTO rounds (epoch_id, start_time, end_time, lock_start, lock_end, starting_price, ending_price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            rounds_data
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def DELETE_create_epoch(start_time, end_time, status):
-    """Create a new epoch"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute(
-            'INSERT INTO epochs (start_time, end_time, status) VALUES (?, ?, ?)',
-            (start_time, end_time, status)
-        )
-        conn.commit()
-        return cursor.lastrowid
-    finally:
-        conn.close()
-
 def get_active_epoch():
     """Get the current active epoch"""
     conn = get_db_connection()
@@ -338,22 +328,6 @@ def update_epoch(epoch_id, data):
         )
         conn.commit()
         return cursor.rowcount
-    finally:
-        conn.close()
-
-# Round functions
-def DELETE_create_round(epoch_id, start_time, end_time, starting_price):
-    """Create a new round"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute(
-            'INSERT INTO rounds (epoch_id, start_time, end_time, starting_price, status) VALUES (?, ?, ?, ?, ?)',
-            (epoch_id, start_time, end_time, starting_price, 'active')
-        )
-        conn.commit()
-        return cursor.lastrowid
     finally:
         conn.close()
 
@@ -475,7 +449,7 @@ def evaluate_predictions(round_id, correct_direction):
             (round_id,)
         )
         predictions = cursor.fetchall()
-        logger.info(f"Found {len(predictions)} for round {round_id}")
+        logger.info(f"Found {len(predictions)} predictions for round {round_id}")
         # Update user_epoch_stats for correct predictions
         for prediction in predictions:
             if prediction['is_correct']:

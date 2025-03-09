@@ -169,6 +169,72 @@ def create_prediction():
         'message': 'Prediction created successfully'
     }), 201
 
+# Prediction endpoints
+@api_bp.route('/predictionsv2', methods=['POST'])
+def create_prediction_v2():
+    """Create a new prediction"""
+    data = request.json
+    
+    # Validate required fields
+    required_fields = ['address', 'round_id', 'direction', 'signature']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+    
+    # Validate direction
+    if data['direction'] not in ['up', 'down']:
+        return jsonify({'error': 'Direction must be "up" or "down"'}), 400
+    
+    # Check if round is active
+    round_data = models.get_round_by_id(data['round_id'])
+    if not round_data:
+        return jsonify({'error': 'Round not found'}), 404
+    
+    if round_data['status'] != 'active':
+        return jsonify({'error': f'Round is not active. It is {round_data["status"]}'}), 400
+    
+    # Verify signature
+    logger.warning("NOT VERIFYING SIGNATURE YET. predictionsv2")
+    #message = f"Predict {data['direction']} for round {data['round_id']}"
+    #if not verify_signature(message, data['signature'], data['address']):
+    #    return jsonify({'error': 'Invalid signature'}), 401
+    
+    # Check if user can do prediction or already made a prediction for this round
+    conn = models.get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            'SELECT * FROM user_epoch WHERE user_address = ? AND epoch_id = ?',
+            (data['address'], round_data['epoch_id'])
+        )
+        user = cursor.fetchone()
+        if not user:  
+            return jsonify({'error': 'User is not allowed to make a prediction for this round and epoch. Delegations has to be completed before epoch start.'}), 403
+ 
+        cursor.execute(
+            'SELECT * FROM predictions WHERE user_address = ? AND round_id = ?',
+            (data['address'], data['round_id'])
+        )
+        existing_prediction = cursor.fetchone()
+        
+        if existing_prediction:
+            return jsonify({'error': 'User already made a prediction for this round'}), 400
+    finally:
+        conn.close()
+    
+    # Create prediction
+    prediction_id = models.create_prediction(
+        data['address'],
+        data['round_id'],
+        data['direction']
+    )
+    
+    return jsonify({
+        'id': prediction_id,
+        'message': 'Prediction created successfully'
+    }), 201
+
 @api_bp.route('/users/<address>/predictions', methods=['GET'])
 def get_user_predictions(address):
     """Get all predictions for a user"""
