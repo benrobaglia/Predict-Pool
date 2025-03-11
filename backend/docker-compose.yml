@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DEBUG=True
+      - HOST=0.0.0.0
+      - PORT=5000
+      - DATABASE_PATH=/data/database.db
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - RPC_URL=${RPC_URL}
+      - SYMBOL=${SYMBOL}
+      - EPOCH_DURATION_SECONDS=${EPOCH_DURATION_SECONDS:-600}
+      - EPOCH_LOCK_SECONDS=${EPOCH_LOCK_SECONDS:-10}
+      - EPOCH_CALCULATING_SECONDS=${EPOCH_CALCULATING_SECONDS:-10}
+      - ROUNDS_COUNT=${ROUNDS_COUNT:-10}
+      - ROUND_LOCK_PERCENTAGE=${ROUND_LOCK_PERCENTAGE:-0.5}
+      - ROUND_CALCULATING_SECONDS=${ROUND_CALCULATING_SECONDS:-10}
+    volumes:
+      - predict_pool_data:/data
+    restart: unless-stopped
+
+volumes:
+  predict_pool_data:
