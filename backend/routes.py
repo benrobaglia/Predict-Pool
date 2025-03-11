@@ -194,10 +194,9 @@ def create_prediction_v2():
         return jsonify({'error': f'Round is not active. It is {round_data["status"]}'}), 400
     
     # Verify signature
-    logger.warning("NOT VERIFYING SIGNATURE YET. predictionsv2")
-    #message = f"Predict {data['direction']} for round {data['round_id']}"
-    #if not verify_signature(message, data['signature'], data['address']):
-    #    return jsonify({'error': 'Invalid signature'}), 401
+    message = f"Predict {data['direction']} for round {data['round_id']}"
+    if not verify_signature(message, data['signature'], data['address']):
+        return jsonify({'error': 'Invalid signature'}), 401
     
     # Check if user can do prediction or already made a prediction for this round
     conn = models.get_db_connection()
