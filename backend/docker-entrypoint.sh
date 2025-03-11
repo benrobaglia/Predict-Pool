@@ -38,6 +38,27 @@ if [ -z "$SYMBOL" ]; then
     exit 1
 fi
 
+if [ -z "$PROXY_USER" ]; then
+    echo "ERROR: PROXY_USER environment variable is required"
+    exit 1
+fi
+
+if [ -z "$PROXY_PASSWORD" ]; then
+    echo "ERROR: PROXY_PASSWORD environment variable is required"
+    exit 1
+fi
+
+if [ -z "$PROXY_IP" ]; then
+    echo "ERROR: PROXY_IP environment variable is required"
+    exit 1
+fi
+
+if [ -z "$PROXY_PORT" ]; then
+    echo "ERROR: PROXY_PORT environment variable is required"
+    exit 1
+fi
+
+
 # Check if ABI files exist
 if [ ! -f "/app/abi/PredictVault_abi.json" ]; then
     echo "WARNING: PredictVault_abi.json not found in /app/abi/"
