@@ -1,12 +1,10 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 import logging
-import models
-import routes
-import tasks
-import blockchain
-import config
-import os
+from backend.src import models
+from backend.src import routes
+from backend.src import tasks
+from backend.config import config
 
 # Configure logging
 logging.basicConfig(

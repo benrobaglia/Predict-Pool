@@ -2,9 +2,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import time
 import requests
 import logging
-import models
-import blockchain
-import config
+from backend.src import models
+from backend.src import blockchain
+from backend.config import config
 from datetime import datetime, timezone
 import backoff
 from functools import partial
