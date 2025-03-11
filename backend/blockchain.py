@@ -10,10 +10,16 @@ logger = logging.getLogger(__name__)
 
 # Load ABI from the project root
 try:
-    with open('../abi/PredictVault_abi.json', 'r') as f:
+    # Try to load from relative path (for development)
+    abi_path = '../abi/PredictVault_abi.json'
+    if not os.path.exists(abi_path):
+        # Try to load from absolute path (for Docker)
+        abi_path = '/app/abi/PredictVault_abi.json'
+    
+    with open(abi_path, 'r') as f:
         contract_abi = json.load(f)
 except FileNotFoundError:
-    logger.error("PredictVault_abi.json not found. Make sure the file exists in the project root.")
+    logger.error("PredictVault_abi.json not found. Make sure the file exists in the project root or /app/abi directory.")
     contract_abi = None
 
 # Initialize Web3 connection
