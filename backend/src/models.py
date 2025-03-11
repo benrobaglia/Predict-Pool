@@ -1,8 +1,7 @@
 import sqlite3
-import json
 import logging
 from datetime import datetime, timedelta, timezone
-import config
+from backend.config import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

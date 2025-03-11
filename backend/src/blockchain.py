@@ -1,7 +1,7 @@
 from web3 import Web3
 import json
 import os
-import config
+from backend.config import config
 import logging
 
 # Configure logging
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # Load ABI from the project root
 try:
     # Try to load from relative path (for development)
-    abi_path = '../abi/PredictVault_abi.json'
+    abi_path = 'abi/PredictVault_abi.json'
     if not os.path.exists(abi_path):
         # Try to load from absolute path (for Docker)
         abi_path = '/app/abi/PredictVault_abi.json'

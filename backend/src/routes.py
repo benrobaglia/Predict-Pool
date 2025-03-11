@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-import models
-import blockchain
+from backend.src import models
+from backend.src import blockchain
 from datetime import datetime
 import logging
 from eth_account.messages import encode_defunct
@@ -84,7 +84,7 @@ def get_current_round():
         return jsonify({'error': 'No active round found'}), 404
     
     # Get current price
-    from tasks import fetch_price
+    from backend.src.tasks import fetch_price
     current_price = fetch_price()
     round_data['current_price'] = current_price
     

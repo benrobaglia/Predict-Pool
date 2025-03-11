@@ -9,20 +9,29 @@ import os
 import logging
 import json
 
-# Add the backend directory to the Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
+# Configure logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Add the parent directory to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+project_dir = os.path.dirname(parent_dir)
+sys.path.append(project_dir)
 
 # Import backend modules
-import blockchain
-import models
-import config
+from backend.src import blockchain
+from backend.src import models
+from backend.config import config
 
 # Fix ABI path issue
 try:
-    with open('abi/PredictVault_abi.json', 'r') as f:
+    # Try to load from backend/abi directory
+    abi_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'abi', 'PredictVault_abi.json')
+    with open(abi_path, 'r') as f:
         blockchain.contract_abi = json.load(f)
 except FileNotFoundError:
-    logger.error("PredictVault_abi.json not found in abi/ directory.")
+    logger.error(f"PredictVault_abi.json not found at {abi_path}")
 
 # Configure logging
 logging.basicConfig(
