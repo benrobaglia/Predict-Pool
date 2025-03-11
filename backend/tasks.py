@@ -22,7 +22,7 @@ def fetch_price():
     """Fetch current symbol price from an API with retries using backoff"""
     try:
         symbol = config.SYMBOL
-        response = requests.get(config.PRICE_API_URL + symbol, timeout=5)
+        response = requests.get(config.PRICE_API_URL + symbol, proxies=config.PROXY, timeout=5)
         response.raise_for_status()
 
         data = response.json()

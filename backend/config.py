@@ -30,3 +30,11 @@ ROUNDS_COUNT = int(os.getenv('ROUNDS_COUNT', '10'))
 ROUND_LOCK_PERCENTAGE = float(os.getenv('ROUND_LOCK_SECONDS', '0.5'))
 ROUND_CALCULATING_SECONDS = int(os.getenv('ROUND_CALCULATING_SECONDS', '10'))
 
+proxy_user = os.getenv("PROXY_USER")
+proxy_password = os.getenv("PROXY_PASSWORD")
+proxy_ip = os.getenv("PROXY_IP")
+proxy_port = os.getenv("PROXY_PORT")
+
+PROXY = {
+    "https": f"http://{proxy_user}:{proxy_password}@{proxy_ip}:{proxy_port}"
+}

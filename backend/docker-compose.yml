@@ -20,6 +20,10 @@ services:
       - ROUNDS_COUNT=${ROUNDS_COUNT:-10}
       - ROUND_LOCK_PERCENTAGE=${ROUND_LOCK_PERCENTAGE:-0.5}
       - ROUND_CALCULATING_SECONDS=${ROUND_CALCULATING_SECONDS:-10}
+      - PROXY_USER=${PROXY_USER}
+      - PROXY_PASSWORD=${PROXY_PASSWORD}
+      - PROXY_IP=${PROXY_IP}
+      - PROXY_PORT=${PROXY_PORT}
     volumes:
       - predict_pool_data:/data
     restart: unless-stopped
