@@ -351,3 +351,78 @@ def get_contract_info():
         'epoch_baseline': blockchain.get_epoch_baseline(),
         'epoch_total_supply': blockchain.get_epoch_total_supply()
     })
+
+
+@api_bp.route('/rewards/apy', methods=['GET'])
+def get_all_rewards():
+    """Get rewards and APY for all users at the end of an epoch"""
+    # Check for unknown parameters
+    allowed_params = ['display_scale_factor']
+    unknown_params = [param for param in request.args.keys() if param not in allowed_params]
+    if unknown_params:
+        return jsonify({'error': f'Unknown parameter(s): {", ".join(unknown_params)}'}), 400
+    
+    # Get display_scale_factor from query parameters if provided
+    display_scale_factor = request.args.get('display_scale_factor', 10)
+    try:
+        display_scale_factor = int(display_scale_factor)
+        if display_scale_factor <= 0:
+            return jsonify({'error': 'display_scale_factor must be positive'}), 400
+    except ValueError:
+        return jsonify({'error': 'Invalid display_scale_factor format'}), 400
+    
+    # Calculate rewards and APY for all users
+    all_rewards_data = blockchain.calculate_users_rewards_and_apy(display_scale_factor)
+    
+    if 'error' in all_rewards_data:
+        return jsonify({'error': all_rewards_data['error']}), 500
+    
+    # Get the most recent completed epoch
+    conn = models.get_db_connection()
+    cursor = conn.cursor()
+    epoch_id = None
+    try:
+        cursor.execute(
+            'SELECT id FROM epochs WHERE status = "completed" ORDER BY id DESC LIMIT 1'
+        )
+        latest_completed = cursor.fetchone()
+        if latest_completed:
+            epoch_id = latest_completed['id']
+    finally:
+        conn.close()
+    
+    # Format the response
+    result = {
+        'epoch_id': epoch_id,
+        'users': {}
+    }
+    
+    # Add user stats for each user
+    for address, rewards in all_rewards_data.items():
+        user_data = {
+            'rewards': rewards['rewards'],
+            'apy': rewards['apy'],
+            'annualized_apy': rewards['annualized_apy'],
+            'display_apy': rewards['display_apy']
+        }
+        
+        # Get user stats if epoch_id is available
+        if epoch_id:
+            stats = models.get_user_stats(address, epoch_id)
+            if stats:
+                user_data.update({
+                    'correct_predictions': stats['correct_predictions'],
+                    'total_predictions': stats['total_predictions'],
+                    'accuracy': stats.get('accuracy', 0),
+                    'weight': stats['weight']
+                })
+        
+        result['users'][address] = user_data
+    
+    # Add total rewards information
+    if all_rewards_data and len(all_rewards_data) > 0:
+        # All users have the same epoch_rewards value, so just get it from the first user
+        first_user = next(iter(all_rewards_data))
+        result['epoch_rewards'] = all_rewards_data[first_user]['epoch_rewards']
+    
+    return jsonify(result)
