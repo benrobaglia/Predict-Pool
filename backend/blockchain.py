@@ -103,6 +103,19 @@ def get_total_mon():
     except Exception as e:
         logger.error(f"Error getting total MON: {e}")
         return 0
+
+# Get total shMON in vault
+def get_total_shmon():
+    """Get total shMON in vault"""
+    contract = get_contract()
+    if not contract:
+        return 0
+    
+    try:
+        return contract.functions.totalshMON().call()
+    except Exception as e:
+        logger.error(f"Error getting total shMON: {e}")
+        return 0
     
 
 # Get all users using the getUsers function from the smart contract
@@ -174,6 +187,113 @@ def get_epoch_total_supply():
     except Exception as e:
         logger.error(f"Error getting epoch total supply: {e}")
         return 0
+
+# Calculate user rewards and APY for an epoch
+def calculate_users_rewards_and_apy(display_scale_factor=10):
+    """
+    Calculate all users rewards and APY for a completed epoch
+    
+    Args:
+        display_scale_factor: Scale the display staking rewards (to show significant numbers as staking is not live on Monad yet)
+        
+    Returns:
+        Dictionary with rewards and APY information for each user
+    """
+    # Validate display_scale_factor
+    if display_scale_factor <= 0:
+        logger.error(f"Invalid display_scale_factor: {display_scale_factor}. Must be positive.")
+        return {"error": "display_scale_factor must be positive"}
+    
+    contract = get_contract()
+    if not contract:
+        logger.error("Contract not available. Check RPC connection and contract address.")
+        return {"error": "Contract not available"}
+    
+    try:
+        # Get epoch data
+        current_total_mon = get_total_mon()
+        epoch_baseline = get_epoch_baseline()
+        epoch_total_supply = get_epoch_total_supply()
+        
+        # Get all users and their weights
+        users = get_users()
+
+        # If no rewards generated, return early
+        if current_total_mon <= epoch_baseline:
+            return {u: {
+                        "rewards": 0,
+                        "apy": 0,
+                        "annualized_apy": 0,
+                        "display_apy": 0,
+                        "epoch_rewards": 0
+                    }
+                    for u in users
+            }
+        
+        # 1. Calculate total rewards generated during the epoch
+        epoch_rewards = current_total_mon - epoch_baseline
+                
+        # 2. Calculate denominator: sum of (weight * deposited_mon) for all users
+        denominator = 0
+        for user in users:
+            user_balance = contract.functions.balanceOf(user).call()
+            user_weight = contract.functions.userWeights(user).call()
+            
+            # Skip users with zero balance
+            if user_balance == 0:
+                continue
+            
+            # Calculate deposited MON using the formula from the smart contract
+            deposited_mon = (user_balance * epoch_baseline) // epoch_total_supply
+            denominator += user_weight * deposited_mon
+        
+        if denominator == 0:
+            return {u: {
+                        "rewards": 0,
+                        "apy": 0,
+                        "annualized_apy": 0,
+                        "display_apy": 0,
+                        "epoch_rewards": epoch_rewards
+                    }
+                    for u in users
+            }
+        
+        result = {}
+        for user_address in users:
+            # Get user's balance and weight
+            user_balance = contract.functions.balanceOf(user_address).call()
+            user_weight = contract.functions.userWeights(user_address).call()
+            
+            # Calculate user's deposited MON
+            deposited_mon = (user_balance * epoch_baseline) // epoch_total_supply
+            
+            # 3. Calculate user's rewards using the formula
+            user_reward = (epoch_rewards * user_weight * deposited_mon) // denominator
+            
+            # 4. Calculate APY (rewards / deposited_mon)
+            apy = 0
+            if deposited_mon > 0:
+                apy = (user_reward * 100) / deposited_mon  # As percentage
+            
+            # 5. Annualize the APY (1 epoch = 10 minutes, so multiply by 6*24*365)
+            # This assumes 6 epochs per hour, 24 hours per day, 365 days per year
+            annualized_apy = apy * 6 * 24 * 365
+            
+            # 6. Multiply by 10 for display (as per requirement)
+            display_apy = annualized_apy * 10
+            result[user_address] = {
+                                    "rewards": user_reward,
+                                    "apy": apy,
+                                    "annualized_apy": annualized_apy,
+                                    "display_apy": display_apy,
+                                    "epoch_rewards": epoch_rewards
+                                }
+            
+        return result
+    
+    except Exception as e:
+        logger.error(f"Error calculating user rewards: {e}")
+        return {"error": str(e)}
 
 # Update epoch
 def update_epoch():
