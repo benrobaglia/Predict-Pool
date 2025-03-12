@@ -1,0 +1,31 @@
+{
+  "name": "predict-pool-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@rainbow-me/rainbowkit": "^2.2.4",
+    "@tailwindcss/postcss": "^4.0.12",
+    "@tanstack/react-query": "^5.55.3",
+    "heroicons": "^2.2.0",
+    "next": "^15.1.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "2.23.3",
+    "wagmi": "^2.14.11"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.8",
+    "@types/react": "^19.0.6",
+    "autoprefixer": "^10.4.21",
+    "eslint-config-next": "^15.1.7",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.0.12",
+    "typescript": "5.5.4"
+  }
+}
